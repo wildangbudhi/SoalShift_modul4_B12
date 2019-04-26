@@ -1,4 +1,4 @@
-#define FUSE_USE_VERSION 28
+   #define FUSE_USE_VERSION 28
 #include <fuse.h>
 #include <stdio.h>
 #include <string.h>
@@ -72,18 +72,18 @@ void encrypt(char kal[1000], char enc[1000])
 static int xmp_getattr(const char *path, struct stat *stbuf)
 {
   int res;
-	char fpath[1000], trupath[1000]={0};
-    
+	char fpath[1000], trupath[1000]={0}, ppath[1000];
+    strcpy(ppath, path);
     if(strcmp(path, ".")!= 0 && strcmp(path,"..")!=0)
     {
-        encrypt(path, trupath);
+        encrypt(ppath, trupath);
         sprintf(fpath,"%s%s",dirpath,trupath);
     }
     else
     {
         sprintf(fpath,"%s%s",dirpath,path);
     }
-
+    printf("INI FPAAATHHH getattr: %s\n", fpath);
 	res = lstat(fpath, stbuf);
 
 	if (res == -1)
@@ -95,17 +95,18 @@ static int xmp_getattr(const char *path, struct stat *stbuf)
 static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		       off_t offset, struct fuse_file_info *fi)
 {
-  char fpath[1000];
-	if(strcmp(path,"/") == 0)
+    char fpath[1000], ppath[1000];
+    strcpy(ppath, path);
+    if(strcmp(path,"/") == 0)
 	{
 		path=dirpath;
 		sprintf(fpath,"%s",path);
 	}
 	else
     {
-        encrypt(path, path);
-        sprintf(fpath, "%s%s",dirpath,path);
-        printf("INI FPAAATHHH PERTAMA: %s\n", fpath);
+        encrypt(ppath, ppath);
+        sprintf(fpath, "%s%s",dirpath,ppath);
+        printf("INI FPAAATHHH PERTAMA readdir: %s\n", fpath);
     }
     
     int res = 0;
@@ -172,10 +173,103 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 	return res;
 }
 
+static int xmp_mkdir(const char *path, mode_t mode)
+{
+    char fpath[1000], ppath[1000];
+    strcpy(ppath, path);
+    encrypt(ppath, ppath);
+    printf("INI PPATH-NYA MKDIR: %s\n", ppath);
+    sprintf(fpath, "%s%s", dirpath, ppath);
+    printf("INI FPATH-NYA MKDIR: %s\n", fpath);
+    if(strstr(fpath, "@ZA>AXio"))
+    {
+        mode = 0750;
+    }
+
+	int res;
+	res = mkdir(fpath, mode);
+	if (res == -1)
+		return -errno;
+
+	return 0;
+}
+
+static int xmp_create(const char* path, mode_t mode, struct fuse_file_info* fi)
+{
+    printf("MASUK CREATEEEEEE\n");
+    (void) fi;
+
+    char fpath[1000], ppath[1000];
+    strcpy(ppath, path);
+    encrypt(ppath, ppath);
+    printf("INI PPATH-NYA create: %s\n", ppath);
+    sprintf(fpath, "%s%s", dirpath, ppath);
+    printf("INI FPATH-NYA create: %s\n", fpath);
+    if(strstr(fpath, "@ZA>AXio"))
+    {
+        mode = 0640;
+    }
+
+    int res;
+    res = creat(fpath, mode);
+    if(res == -1)
+	return -errno;
+
+    close(res);
+
+    return 0;
+}
+
+static int xmp_utimens(const char *path, const struct timespec ts[2])
+{
+    char fpath[1000], ppath[1000];
+    strcpy(ppath, path);
+    encrypt(ppath, ppath);
+    printf("INI PPATH-NYA utimens: %s\n", ppath);
+    sprintf(fpath, "%s%s", dirpath, ppath);
+    printf("INI FPATH-NYA utimens: %s\n", fpath);
+
+	int res;
+	struct timeval tv[2];
+
+	tv[0].tv_sec = ts[0].tv_sec;
+	tv[0].tv_usec = ts[0].tv_nsec / 1000;
+	tv[1].tv_sec = ts[1].tv_sec;
+	tv[1].tv_usec = ts[1].tv_nsec / 1000;
+
+	res = utimes(path, tv);
+	if (res == -1)
+		return -errno;
+
+	return 0;
+}
+
+static int xmp_truncate(const char *path, off_t size)
+{
+    char fpath[1000], ppath[1000];
+    strcpy(ppath, path);
+    encrypt(ppath, ppath);
+    printf("INI PPATH-NYA utimens: %s\n", ppath);
+    sprintf(fpath, "%s%s", dirpath, ppath);
+    printf("INI FPATH-NYA utimens: %s\n", fpath);
+
+	int res;
+
+	res = truncate(fpath, size);
+	if (res == -1)
+		return -errno;
+
+	return 0;
+}
+
 static struct fuse_operations xmp_oper = {
 	.getattr	= xmp_getattr,
 	.readdir	= xmp_readdir,
 	.read		= xmp_read,
+    .mkdir      = xmp_mkdir,
+    .create     = xmp_create,
+    .utimens    = xmp_utimens,
+    .truncate   = xmp_truncate,
 };
 
 int main(int argc, char *argv[])
